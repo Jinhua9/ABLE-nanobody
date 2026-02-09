@@ -15,4 +15,13 @@ ABLE enables the rational design of high-avidity biparatopic nanobodies by predi
 
 ## Installation
 
+```bash
+# Clone the repository
+git clone https://github.com/Jinhua9/ABLE-nanobody.git
+cd ABLE-nanobody
+
+# Install dependencies
+pip install -r requirements.txt
+
+
 
