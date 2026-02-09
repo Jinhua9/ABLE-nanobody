@@ -82,14 +82,8 @@ predictions = model.predict(new_data.values)
 new_data['Predicted_KD_nM'] = predictions
 new_data.to_excel('predictions.xlsx', index=False)
 
-## Citation
-If you use ABLE in your research, please cite:
-@article{gong2024able,
-  title={AlphaFold-assisted high-avidity biparatopic nanobodies designed by ABLE},
-  author={Gong, Jinhua and Zhu, Liang and Wei, Likun and Wang, Meiniang and Deng, Xin and Tang, Zimin and Wang, Wanyu and Li, Zhiyong and Yu, Siyuan and Pan, Haifeng and Zhuang, Haoyun and Tan, Shanzhi and Yu, Xuan and Guo, Zhixuan and Liu, Dasheng and Zheng, Penglong and Ge, Shengxiang and Xia, Ningshao and Shi, Jiahai},
-  journal={Nature Methods},
-  year={2024}
-}
+## Contact
+For questions about the model or dataset, please open an issue or contact Jinhua GONG and Jiahai Shi.
 
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
