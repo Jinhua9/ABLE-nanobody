@@ -7,7 +7,7 @@ import pandas as pd
 
 def validate_features(df, required_features=None):
     """
-    Validate that DataFrame contains all required features.
+    Validate that the DataFrame contains all required features.
     
     Args:
         df (pd.DataFrame): Input DataFrame
@@ -61,7 +61,7 @@ def calculate_derived_features(df):
     
     # Calculate S_geometry if not present
     if 'S_geometry' not in df.columns:
-        from src.able_model import calculate_geometry_score
+        from .able_model import calculate_geometry_score
         
         # Ensure required ratios exist
         if 'R_link' not in df.columns or 'R_area' not in df.columns or 'R_bond' not in df.columns:
@@ -81,7 +81,7 @@ def calculate_derived_features(df):
 
 def print_model_summary(model):
     """
-    Print summary of trained ABLE model.
+    Print the summary of the trained ABLE model.
     
     Args:
         model (ABLEModel): Trained model instance
