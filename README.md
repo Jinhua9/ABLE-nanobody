@@ -40,14 +40,17 @@ ABLE enables rational design of high-avidity biparatopic nanobodies by predictin
    ```bash
    git clone https://github.com/Jinhua9/ABLE-nanobody.git
    cd ABLE-nanobody
+   
 2. **Create a virtual environment (recommended)**  
    ```bash
    python -m venv able_env
    source able_env/bin/activate   # Linux/macOS
    or .\able_env\Scripts\activate   # Windows
+   
 3. **Install dependencies**  
    ```bash
    pip install -r requirements.txt
+   
 4. **Verify installation**  
    ```bash
    python -c "import sklearn, pandas, joblib; print('OK')"
