@@ -3,87 +3,148 @@
 ## Overview
 This repository contains the implementation of the ABLE model, a gradient boosting regression model for predicting biparatopic nanobody avidity from structural and energetic features, as described in:
 
-**"AlphaFold-assisted high-avidity biparatopic nanobodies designed by ABLE"**
+**"AlphaFold-assisted high-avidity biparatopic nanobodies designed by ABLE"**  
 
 ABLE enables rational design of high-avidity biparatopic nanobodies by predicting apparent dissociation constants (KD) based on 14 structural features derived from AlphaFold-predicted complexes.
 
-## Repository Structure
-ABLE-nanobody/
-├── data/
-│ └── ABLE Dataset.xlsx # Complete dataset of 102 biparatopic constructs
-├── models/
-│ └── ABLE_model.pkl # Pre-trained ABLE model
-├── src/
-│ ├── init.py # Package initialization
-│ ├── able_model.py # ABLE model implementation
-│ └── utils.py # Utility functions
-├── examples/
-│ ├── 01_train_model.py # Example: Train model from scratch
-│ └── 02_predict_avidity.py # Example: Make predictions with trained model
-├── requirements.txt # Python dependencies
-├── LICENSE # MIT License
-└── README.md # This file
+---
 
+## System Requirements
 
-## Installation
+### Operating Systems
+- Linux (Ubuntu 20.04 or later)
+- macOS (11.0 or later)
+- Windows 10/11 (via WSL or native Python)
 
-### Prerequisites
-- Python 3.8 or higher
-- pip package manager
+### Software Dependencies
+- Python 3.8 – 3.11
+- Package versions as listed in `requirements.txt`
 
-### Install dependencies
-pip install -r requirements.txt
+### Hardware Requirements
+- Standard desktop or laptop (no GPU required)
+- RAM: ≥ 4 GB
+- Disk space: < 100 MB
 
-## Quick Start
-### Option 1: Load Pre-trained Model
-from src.able_model import load_able_model
+### Tested Configurations
+- Ubuntu 22.04, Python 3.9.18
+- macOS Ventura 13.6, Python 3.10.13
+- Windows 11 (WSL2), Python 3.10.11
 
-1. Load the pre-trained model
-model = load_able_model('models/ABLE_model.pkl')
+---
 
-2. Prepare your features (see dataset format)
-features = [...]  # Your 14 features in order
+## Installation Guide
 
-3. Predict KD
-predicted_kd = model.predict([features])
-print(f"Predicted KD: {predicted_kd[0]:.3f} nM")
+**Typical install time: < 2 minutes** on a normal desktop
 
-### Option 2: Train Model from Scratch
-1. Run the training example
-python examples/01_train_model.py
+1. **Clone the repository**  
+   ```bash
+   git clone https://github.com/Jinhua9/ABLE-nanobody.git
+   cd ABLE-nanobody
+2. **Create a virtual environment (recommended)**  
+   ```bash
+   python -m venv able_env
+   source able_env/bin/activate   # Linux/macOS
+   or .\able_env\Scripts\activate   # Windows
+3. **Install dependencies**  
+   ```bash
+   pip install -r requirements.txt
+4. **Verify installation**  
+   ```bash
+   python -c "import sklearn, pandas, joblib; print('OK')"
 
-## Usage Examples
-### Example 1: Training the Model
-from src.able_model import ABLEModel
-import pandas as pd
+---
 
-1. Load dataset
-df = pd.read_excel('data/ABLE Dataset.xlsx')
+## Demo
+We provide a complete demo that trains the ABLE model on the full dataset (102 biparatopic constructs) and evaluates its performance.
 
-2. Initialize and train model
-model = ABLEModel()
-X_test, y_test, y_pred = model.train_from_excel('data/ABLE Dataset.xlsx')
+1. **Run the demo**  
+   ```bash
+   python examples/01_train_model.py
+   
+2. **Expected output (abbreviated)**  
+   ```text
+    ABLE MODEL TRAINING EXAMPLE
+   Training on the complete dataset (102 biparatopic constructs)
+   ...
+   PERFORMANCE ON TEST SET (20% of data)
+   R² (log scale):            0.84
+   2-fold Accuracy:           90.5%
+   ...
+   Top 10 Most Important Features:
+   1. d_epi            0.2145
+   2. KD_C             0.1783
+   ...
+3. **Expected run time: < 10 seconds on a normal desktop**  
+   The demo uses the full dataset and an 80/20 stratified train-test split (random seed 456). Results may vary slightly but should approximate the R² ~0.84 and 2-fold accuracy ~90% reported in the paper.
 
-3. Evaluate performance
-metrics = model.evaluate(X_test, y_test)
-print(f"Test R²: {metrics['r2']:.4f}")
-print(f"2-fold Accuracy: {metrics['accuracy_2fold']:.1f}%")
+---
 
-### Example 2: Batch Prediction
-import pandas as pd
-from src.able_model import load_able_model
+## Instructions for Use
 
-1. Load model and new data
-model = load_able_model('models/ABLE_model.pkl')
-new_data = pd.read_excel('new_constructs.xlsx')
+1. **Predict avidity for your own biparatopic constructs**  
+You need to compute the 13 input features (all except KD_bipara) for your constructs. Then use the pre-trained model:
+   ```python
+   from src.able_model import load_able_model
+   import pandas as pd
 
-3. Predict
-predictions = model.predict(new_data.values)
-new_data['Predicted_KD_nM'] = predictions
-new_data.to_excel('predictions.xlsx', index=False)
+   # Load pre-trained model
+   model = load_able_model('models/ABLE_model.pkl')
 
-## Contact
-For questions about the model or dataset, please open an issue or contact Jinhua GONG and Jiahai Shi.
+   # Prepare your feature DataFrame (must have exactly these 13 columns)
+   new_data = pd.DataFrame({
+    'KD_N': [2.5], 'KD_C': [3.0], 'D_mono': [40.2], 'd_epi': [15.3],
+    'L_link': [45.0], 'R_link': [1.12], 'R_area': [0.95], 'R_bond': [1.05],
+    'AN': [450.2], 'AC': [420.8], 'n_bonds_N': [12], 'n_bonds_C': [10],
+    'S_geometry': [3]})
+
+   # Predict (model returns KD in nM)
+   pred_KD = model.predict(new_data.values)
+   print(f"Predicted KD: {pred_KD[0]:.3f} nM")
+  
+2. **Feature definitions**  
+   All features must be computed from AlphaFold-predicted antigen–nanobody complexes. Detailed calculation protocols are provided in the Methods and Supplementary Information sections of the paper.
+    
+3. **Train your own model**  
+   ```bash
+   python examples/01_train_model.py
+
+4. **Batch prediction**  
+   ```python
+   import pandas as pd
+   from src.able_model import load_able_model
+   model = load_able_model('models/ABLE_model.pkl')
+   new_data = pd.read_excel('your_constructs.xlsx')  # must contain the 13 input columns
+   predictions = model.predict(new_data.values)
+   new_data['Predicted_KD_nM'] = predictions
+   new_data.to_excel('predictions.xlsx', index=False)
+
+---
+
+## Reproducing paper results
+
+1. **Notes**  
+All quantitative results reported in the manuscript (R², fold accuracy, feature importance, etc.) can be reproduced by running:
+   ```python
+   python examples/01_train_model.py
+The script uses the exact same dataset (data/ABLE Dataset.xlsx) and the same random seed (456) as described in the paper.
+
+---
 
 ## License
-This project is licensed under the MIT License - see the LICENSE file for details.
+
+This project is licensed under the MIT License – see the LICENSE file for details.
+
+---
+
+##  Contact & Support
+
+Corresponding authors: Jiahai Shi (jh.shi@nus.edu.sg)
+
+Repository maintainer: Jinhua Gong (jinhgong-c@my.cityu.edu.hk)
+
+Issue tracker: GitHub Issues
+
+---
+
+## Acknowledgements
+This work was supported by the Ministry of Education (MOE) of Singapore and Shenzhen BGI Research.
