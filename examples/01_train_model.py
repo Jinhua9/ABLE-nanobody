@@ -5,6 +5,7 @@ Example 1: Train ABLE model on the complete dataset
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(os.path.dirname(os.path.abspath(__file__)))  # data paths below are relative to this folder
 
 import pandas as pd
 import numpy as np
@@ -59,8 +60,8 @@ def main():
         importance_df = model.get_feature_importance()
         print("\nTop 10 Most Important Features:")
         print("-" * 40)
-        for i, row in importance_df.head(10).iterrows():
-            print(f"{i+1:2d}. {row['feature']:15} {row['importance']:.4f}")
+        for rank, (_, row) in enumerate(importance_df.head(10).iterrows(), start=1):
+            print(f"{rank:2d}. {row['feature']:15} {row['importance']:.4f}")
         
         # Save model
         print("\n6. Saving trained model...")

@@ -74,9 +74,55 @@ def calculate_derived_features(df):
                     row['R_bond']
                 ), axis=1
             )
-            print("✓ Calculated S_geometry (0-3 scale)")
+            print("✓ Calculated S_geometry (continuous 0-3 scale)")
     
     return df
+
+
+def prepare_model_input(df, r_bond_orientation='C_over_N'):
+    """
+    Build the exact 13-column feature matrix the v2 model expects,
+    starting from raw measurements.
+
+    Accepts a DataFrame with raw KD values in **nM** plus structural
+    measurements, computes the derived ratio features, log-transforms
+    the KD columns and returns the columns in model order.
+
+    Required input columns:
+        'KD_N', 'KD_C'         monomer KDs (nM)
+        'D_mono', 'd_epi', 'L_link'
+        'AN', 'AC'             buried SASA per terminus
+        'n_bonds_N', 'n_bonds_C'
+    Optional (computed if absent): 'R_link', 'R_area', 'R_bond', 'S_geometry'
+
+    Args:
+        df (pd.DataFrame): raw input data
+        r_bond_orientation (str): 'C_over_N' (default, patent convention:
+            n_t^C / n_t^N) or 'N_over_C'. The training data used C/N for
+            the majority of constructs; only override if you know your
+            construct orientation differs.
+
+    Returns:
+        pd.DataFrame: 13 columns, ln(KD) features, ready for ABLEModel.predict()
+    """
+    from .able_model import ABLEModel
+
+    df = df.copy()
+
+    if r_bond_orientation == 'N_over_C':
+        if 'n_bonds_C' in df.columns and 'n_bonds_N' in df.columns:
+            df['R_bond'] = df['n_bonds_N'] / df['n_bonds_C']
+    df = calculate_derived_features(df)
+
+    # KD columns: nM -> ln
+    for col in ['KD_N', 'KD_C']:
+        s = pd.to_numeric(df[col], errors='coerce')
+        if (s > 20).any():
+            df[col] = np.log(s)
+
+    out = df[ABLEModel.INPUT_FEATURES].astype(float)
+    print(f"✓ Model input prepared: {out.shape[0]} rows × {out.shape[1]} features (ln KD scale)")
+    return out
 
 
 def print_model_summary(model):

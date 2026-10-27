@@ -3,133 +3,153 @@
 ## Overview
 This repository contains the implementation of the ABLE model, a gradient boosting regression model for predicting biparatopic nanobody avidity from structural and energetic features, as described in:
 
-**"AlphaFold-assisted high-avidity biparatopic nanobodies designed by ABLE"**  
+**"AlphaFold-assisted high-avidity biparatopic nanobodies designed by ABLE"**
 
-ABLE enables rational design of high-avidity biparatopic nanobodies by predicting apparent dissociation constants (KD) based on 14 structural features derived from AlphaFold-predicted complexes.
+ABLE enables rational design of high-avidity biparatopic nanobodies by predicting apparent dissociation constants (KD) based on 13 structural features derived from AlphaFold-predicted complexes.
+
+**v2.0 (2026):** the repository now ships the **final published model** — the seed-2/rank-1 configuration of the 200,000-combination × 7-seed hyperparameter search (train R² = 0.95, test R² = 0.87) — together with a browser-based prediction web app and an exact-reproduction package. The original v1 model is preserved as `models/ABLE_model_v1_legacy.pkl`.
+
+### What's new in v2.0
+- **Updated model** (`models/ABLE_model.pkl`): final published gradient boosting configuration (see `reproduce/` for the full protocol).
+- **Zero-install web predictor** (`webapp/`, served via GitHub Pages): enter the 9 raw measurements in a browser, get the predicted KD instantly — no Python needed.
+- **Exact reproduction package** (`reproduce/`): frozen environment + self-checking script that rebuilds the published model bit-for-bit from the curated parameter table.
+- **Bug fixes in the prediction utilities** (see *v1 → v2 fixes* below): v1's `INPUT_FEATURES` accidentally included the target column and dropped `S_geometry`, and the legacy `calculate_geometry_score` used an integer threshold version that did not match the training data.
+
+---
+
+## Quick start — three ways to use ABLE
+
+### Option A: Web app (no installation)
+Open the browser predictor and fill in the 9 raw measurements for your construct:
+
+> **https://jinhua9.github.io/ABLE-nanobody/**
+
+Everything runs locally in your browser (ONNX inference); no data leaves your machine.
+
+### Option B: Python with the pre-trained model
+```bash
+git clone https://github.com/Jinhua9/ABLE-nanobody.git
+cd ABLE-nanobody
+pip install -r requirements.txt
+```
+
+```python
+import pandas as pd
+from src.able_model import load_able_model
+from src.utils import prepare_model_input
+
+model = load_able_model('models/ABLE_model.pkl')
+
+# Raw measurements — KDs in nM; derived features are computed for you
+new_data = pd.DataFrame({
+    'KD_N': [2.5], 'KD_C': [3.0],        # monomer KDs (nM)
+    'D_mono': [40.2], 'd_epi': [15.3], 'L_link': [45.0],
+    'AN': [450.2], 'AC': [420.8],
+    'n_bonds_N': [12], 'n_bonds_C': [10]})
+
+X = prepare_model_input(new_data)   # derives ratios, logs KDs, orders columns
+pred_KD = model.predict(X)          # returns KD in nM
+print(f"Predicted KD: {pred_KD[0]:.3f} nM")
+```
+
+`prepare_model_input` computes `R_link = L_link/D_mono`, `R_area = A_N/A_C`, `R_bond = n_t^C/n_t^N` and the continuous geometry score `S_geometry`, then log-transforms the KD columns and returns the 13 columns in the exact order the model expects. (If you already supply the 13 features yourself, remember that `KD_N`/`KD_C` must be in **ln scale**.)
+
+### Option C: Run the examples
+```bash
+python examples/01_train_model.py   # train a fresh model on the 102-construct dataset
+python examples/02_predict_avidity.py  # predict avidity for example constructs
+```
+Expected run time: < 10 seconds each on a normal desktop.
 
 ---
 
 ## System Requirements
 
-### Operating Systems
-- Linux (Ubuntu 20.04 or later)
-- macOS (11.0 or later)
-- Windows 10/11 (via WSL or native Python)
-
-### Software Dependencies
-- Python 3.8 – 3.11
-- Package versions as listed in `requirements.txt`
-
-### Hardware Requirements
-- Standard desktop or laptop (no GPU required)
-- RAM: ≥ 4 GB
-- Disk space: < 100 MB
-
-### Tested Configurations
-- Ubuntu 22.04, Python 3.9.18
-- macOS Ventura 13.6, Python 3.10.13
-- Windows 11 (WSL2), Python 3.10.11
+- Linux (Ubuntu 20.04+), macOS (11.0+), or Windows 10/11 (native Python or WSL)
+- Python 3.9 – 3.12
+- Standard desktop/laptop; no GPU required; < 100 MB disk
 
 ---
 
-## Installation Guide
+## Input features
 
-**Typical install time: < 2 minutes** on a normal desktop
+All features are computed from AlphaFold-predicted antigen–nanobody complexes (calculation protocols in the paper's Methods and Supplementary Information).
 
-1. **Clone the repository**  
-   ```bash
-   git clone https://github.com/Jinhua9/ABLE-nanobody.git
-   cd ABLE-nanobody
-   
-2. **Create a virtual environment (recommended)**  
-   ```bash
-   python -m venv able_env
-   source able_env/bin/activate   # Linux/macOS
-   or .\able_env\Scripts\activate   # Windows
-   
-3. **Install dependencies**  
-   ```bash
-   pip install -r requirements.txt
-   
-4. **Verify installation**  
-   ```bash
-   python -c "import sklearn, pandas, joblib; print('OK')"
+| # | Feature | Definition |
+|---|---------|------------|
+| 1 | `KD_N` | K_D of the N-terminal monomer (enters the model as ln, in nM) |
+| 2 | `KD_C` | K_D of the C-terminal monomer (enters the model as ln, in nM) |
+| 3 | `D_mono` | distance between the two nanobody C-termini (Å) |
+| 4 | `d_epi` | epitope distance (Å, negative on epitope clash) |
+| 5 | `L_link` | linker contour length (Å) |
+| 6 | `R_link` | `L_link / D_mono` |
+| 7 | `R_area` | `A_N / A_C` (buried SASA per terminus, Å²) |
+| 8 | `R_bond` | `n_t^C / n_t^N` (interface contacts per terminus) |
+| 9 | `AN` | N-terminal buried SASA (Å²) |
+| 10 | `AC` | C-terminal buried SASA (Å²) |
+| 11 | `n_bonds_N` | N-terminal interface contacts |
+| 12 | `n_bonds_C` | C-terminal interface contacts |
+| 13 | `S_geometry` | continuous geometry score, 0–3 (see below) |
 
----
+Geometry score (as used to build the training data):
 
-## Demo
-We provide a complete demo that trains the ABLE model on the full dataset (102 biparatopic constructs) and evaluates its performance.
-
-1. **Run the demo**  
-   ```bash
-   python examples/01_train_model.py
-   
-2. **Expected output (abbreviated)**  
-   ```text
-    ABLE MODEL TRAINING EXAMPLE
-   Training on the complete dataset (102 biparatopic constructs)
-   ...
-   PERFORMANCE ON TEST SET (20% of data)
-   R² (log scale):            0.84
-   2-fold Accuracy:           90.5%
-   ...
-   Top 10 Most Important Features:
-   1. d_epi            0.2145
-   2. KD_C             0.1783
-   ...
-3. **Expected run time: < 10 seconds on a normal desktop**  
-   The demo uses the full dataset and an 80/20 stratified train-test split (random seed 456). Results may vary slightly but should approximate the R² ~0.84 and 2-fold accuracy ~90% reported in the paper.
+```
+S_geometry = (1 - min(|R_link - 1|, 1)) + (1 - min(|R_area - 1|, 0.5)) + (1 - min(|R_bond - 1|, 0.5))
+```
 
 ---
 
-## Instructions for Use
+## Reproducing the published results
 
-1. **Predict avidity for your own biparatopic constructs**  
-You need to compute the 13 input features (all except KD_bipara) for your constructs. Then use the pre-trained model:
-   ```python
-   from src.able_model import load_able_model
-   import pandas as pd
+The published model's exact training protocol lives in [`reproduce/`](reproduce/):
 
-   # Load pre-trained model
-   model = load_able_model('models/ABLE_model.pkl')
+```bash
+cd reproduce
+pip install -r requirements.txt      # frozen versions
+python reproduce_able_gb.py
+```
 
-   # Prepare your feature DataFrame (must have exactly these 13 columns)
-   new_data = pd.DataFrame({
-    'KD_N': [2.5], 'KD_C': [3.0], 'D_mono': [40.2], 'd_epi': [15.3],
-    'L_link': [45.0], 'R_link': [1.12], 'R_area': [0.95], 'R_bond': [1.05],
-    'AN': [450.2], 'AC': [420.8], 'n_bonds_N': [12], 'n_bonds_C': [10],
-    'S_geometry': [3]})
+The script rebuilds the model from `reproduce/data/Parameters_3200s.xlsx` (the curated parameter table used in the paper) with the published split (stratified on ln(KD) deciles, `random_state=123`) and hyperparameters (`random_state=2`), and finishes with a built-in self-check:
 
-   # Predict (model returns KD in nM)
-   pred_KD = model.predict(new_data.values)
-   print(f"Predicted KD: {pred_KD[0]:.3f} nM")
-  
-2. **Feature definitions**  
-   All features must be computed from AlphaFold-predicted antigen–nanobody complexes. Detailed calculation protocols are provided in the Methods and Supplementary Information sections of the paper.
-    
-3. **Train your own model**  
-   ```bash
-   python examples/01_train_model.py
+```text
+Train R² = 0.9525   Test R² = 0.8707   R² diff = 0.0819
+Early-stopped trees: 54/150
+OK REPRODUCED exactly (tol 1e-06)
+```
 
-4. **Batch prediction**  
-   ```python
-   import pandas as pd
-   from src.able_model import load_able_model
-   model = load_able_model('models/ABLE_model.pkl')
-   new_data = pd.read_excel('your_constructs.xlsx')  # must contain the 13 input columns
-   predictions = model.predict(new_data.values)
-   new_data['Predicted_KD_nM'] = predictions
-   new_data.to_excel('predictions.xlsx', index=False)
+`examples/01_train_model.py` is a lighter demonstration that trains on `data/ABLE Dataset.xlsx` with a demonstration split (seed 456); with 21 test samples, single-split test R² varies strongly across seeds, so use `reproduce/` for the published numbers.
+
+### v1 → v2 fixes (for transparency)
+- `INPUT_FEATURES` in v1 was defined as `FEATURE_NAMES[:-1]`, which was intended to exclude the target `KD_bipara` but actually kept `KD_bipara` (position 3) and dropped `S_geometry` (last). v2 lists the 13 input features explicitly.
+- v1's `calculate_geometry_score` used an integer 0–3 threshold rule that does not match the `S_geometry` column of the training data; v2 implements the continuous capped-penalty formula above (verified to match the training table exactly, 102/102 rows).
+- v1 examples passed raw nM KDs and a misordered feature matrix to `predict()`; v2's `prepare_model_input` fixes both.
 
 ---
 
-## Reproducing paper results
+## Repository structure
 
-1. **Notes**  
-All quantitative results reported in the manuscript (R², fold accuracy, feature importance, etc.) can be reproduced by running:
-   ```python
-   python examples/01_train_model.py
-The script uses the exact same dataset (data/ABLE Dataset.xlsx) and the same random seed (456) as described in the paper.
+```
+ABLE-nanobody/
+├── models/
+│   ├── ABLE_model.pkl            # v2 published model (13 ln-scale features)
+│   └── ABLE_model_v1_legacy.pkl  # original v1 model (kept for reference)
+├── src/
+│   ├── able_model.py             # ABLEModel class + geometry score
+│   └── utils.py                  # prepare_model_input, validation, reports
+├── examples/
+│   ├── 01_train_model.py         # train a fresh model on the 102-construct dataset
+│   └── 02_predict_avidity.py     # predict avidity for new constructs
+├── webapp/                       # browser predictor (GitHub Pages)
+│   ├── index.html
+│   └── able_model.onnx           # ONNX export, numerically identical to the pkl
+├── reproduce/                    # exact reproduction of the published model
+│   ├── reproduce_able_gb.py      # self-checking script
+│   ├── requirements.txt          # frozen versions
+│   └── data/Parameters_3200s.xlsx
+├── data/
+│   └── ABLE Dataset.xlsx         # 102-construct dataset (raw measurements)
+└── requirements.txt
+```
 
 ---
 
@@ -139,7 +159,7 @@ This project is licensed under the MIT License – see the LICENSE file for deta
 
 ---
 
-##  Contact & Support
+## Contact & Support
 
 Corresponding authors: Jiahai Shi (jh.shi@nus.edu.sg)
 

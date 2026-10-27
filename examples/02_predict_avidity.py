@@ -1,21 +1,34 @@
 """
 Example 2: Use trained ABLE model to predict avidity for new constructs
+
+The v2 model expects ln(KD) features and a fixed column order.
+``utils.prepare_model_input`` handles all of that from raw nM
+measurements, so this example reads exactly like the v1 workflow.
 """
 
+import os
+import sys
 import pandas as pd
-import numpy as np
+
+# Make 'src' importable and paths robust regardless of the working
+# directory the example is launched from
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_HERE)
+sys.path.insert(0, _ROOT)
+os.chdir(_HERE)  # example data paths below are relative to this folder
+
 from src.able_model import load_able_model
-from src.utils import calculate_derived_features
+from src.utils import prepare_model_input
 
 def main():
     print("Predicting Biparatopic Avidity with ABLE")
     print("=" * 60)
-    
+
     # Load trained model
     print("Loading trained ABLE model...")
-    model = load_able_model('../models/able_model.pkl')
-    
-    # Create example data for prediction
+    model = load_able_model('../models/ABLE_model.pkl')
+
+    # Create example data for prediction (raw measurements, KD in nM)
     print("\nCreating example data...")
     example_data = pd.DataFrame({
         'KD_N': [2.5, 5.0, 1.0],          # N-terminal monomer KD (nM)
@@ -28,17 +41,20 @@ def main():
         'n_bonds_N': [12, 8, 15],         # Interfacial bonds for N-terminal
         'n_bonds_C': [10, 9, 14],         # Interfacial bonds for C-terminal
     })
-    
-    # Calculate derived features
-    example_data = calculate_derived_features(example_data)
-    print(f"Example data shape: {example_data.shape}")
-    print(f"\nExample features:")
-    print(example_data)
-    
+
+    # Build the model-ready feature matrix:
+    #   * derives R_link / R_area / R_bond / S_geometry
+    #   * log-transforms KD_N / KD_C (nM -> ln)
+    #   * orders the 13 columns exactly as the model expects
+    X = prepare_model_input(example_data)
+    print(f"Model input shape: {X.shape}")
+    print(f"\nModel-ready features:")
+    print(X)
+
     # Make predictions
     print("\nMaking predictions...")
-    predictions = model.predict(example_data.values)
-    
+    predictions = model.predict(X)
+
     # Display results
     print("\nPrediction Results:")
     print("=" * 40)
@@ -48,15 +64,15 @@ def main():
         print(f"    KD_N: {features['KD_N']:.1f} nM")
         print(f"    KD_C: {features['KD_C']:.1f} nM")
         print(f"    d_epi: {features['d_epi']:.1f} Å")
-        print(f"    R_link: {features.get('R_link', 'N/A'):.2f}")
-        print(f"    S_geometry: {features.get('S_geometry', 'N/A')}")
+        print(f"    R_link: {features['L_link'] / features['D_mono']:.2f}")
+        print(f"    S_geometry: {X.iloc[i]['S_geometry']:.2f}")
         print(f"  Predicted KD: {pred:.3f} nM")
-        
+
         # Calculate avidity gain
         max_monomer_kd = max(features['KD_N'], features['KD_C'])
         gain = max_monomer_kd / pred
         print(f"  Avidity gain: {gain:.1f}-fold")
-    
+
     print("\n" + "=" * 60)
     print("Prediction complete!")
 

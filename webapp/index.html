@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ABLE — Biparatopic Nanobody Avidity Predictor</title>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<style>
+  :root{
+    --blue:#457b9d; --red:#e63946; --green:#2a9d8f; --gold:#e9c46a; --gray:#6b7280;
+    --ink:#1f2937; --line:#d1d5db; --bg:#ffffff; --soft:#f8fafb;
+  }
+  *{box-sizing:border-box}
+  body{font-family:Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);
+       margin:0;line-height:1.5;font-size:15px}
+  header{border-bottom:2px solid var(--blue);padding:22px 0 14px;margin-bottom:26px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+  h1{font-size:22px;margin:0 0 4px;font-weight:600}
+  h1 .sub{font-weight:400;color:var(--gray);font-size:15px}
+  .tag{display:inline-block;background:var(--blue);color:#fff;font-size:12px;
+       padding:2px 8px;border-radius:3px;vertical-align:2px;margin-left:8px}
+  h2{font-size:16px;font-weight:600;margin:0 0 12px;color:var(--blue)}
+  .cols{display:flex;gap:28px;flex-wrap:wrap}
+  .col{flex:1 1 380px}
+  fieldset{border:1px solid var(--line);border-radius:6px;padding:14px 16px 16px;margin:0 0 18px}
+  legend{font-size:13px;font-weight:600;color:var(--gray);padding:0 6px;text-transform:uppercase;letter-spacing:.5px}
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .field{flex:1 1 150px}
+  label{display:block;font-size:13px;color:var(--gray);margin-bottom:3px}
+  label b{color:var(--ink);font-weight:600}
+  input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:4px;font:inherit}
+  input:focus{outline:2px solid var(--gold);border-color:var(--gold)}
+  .hint{font-size:12px;color:var(--gray);margin-top:2px}
+  button{font:inherit;font-weight:600;border:none;border-radius:5px;cursor:pointer;padding:9px 22px}
+  .primary{background:var(--blue);color:#fff}
+  .primary:hover{background:#3a6a89}
+  .ghost{background:#fff;color:var(--blue);border:1px solid var(--blue);margin-left:10px}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{font-size:12.5px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;
+     background:var(--soft);border-bottom:2px solid var(--line)}
+  .result{border:1px solid var(--blue);border-radius:6px;padding:18px 20px;background:var(--soft)}
+  .big{font-size:30px;font-weight:700;color:var(--blue);font-variant-numeric:tabular-nums}
+  .big small{font-size:15px;color:var(--gray);font-weight:400}
+  .kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dotted var(--line);font-size:14px}
+  .kv:last-child{border-bottom:none}
+  .kv .k{color:var(--gray)}
+  .err{color:var(--red);font-size:14px}
+  .adv{margin:10px 0 0;font-size:13px;color:var(--gray)}
+  .adv input[type=checkbox]{width:auto;margin-right:5px}
+  footer{margin-top:34px;padding:16px 0 6px;border-top:1px solid var(--line);
+         font-size:12.5px;color:var(--gray)}
+  .ok{color:var(--green)} .warn{color:var(--gold)}
+  #derived:disabled{background:var(--soft)}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>ABLE <span class="sub">— biparatopic nanobody avidity predictor</span>
+      <span class="tag">v2.0 &middot; GB-seed2-rank1</span></h1>
+  <div style="font-size:13.5px;color:var(--gray)">
+    Predicts the apparent dissociation constant K<sub>D</sub><sup>bipara</sup> of a biparatopic
+    nanobody from 9 AlphaFold-derived construct descriptors.
+    Gradient-boosting model (seed&nbsp;2, rank&nbsp;1): train&nbsp;R&sup2;&nbsp;0.952 /
+    test&nbsp;R&sup2;&nbsp;0.871 on 102 constructs. Everything runs locally in your browser —
+    no data leaves this page.
+  </div>
+</div></header>
+
+<div class="wrap">
+<div class="cols">
+  <div class="col">
+    <h2>Construct descriptors</h2>
+    <fieldset>
+      <legend>Monovalent binding</legend>
+      <div class="row">
+        <div class="field"><label><b>K<sub>D</sub><sup>N</sup></b> — N-terminal monomer (nM)</label>
+          <input id="kd_n" type="number" step="any" min="0.0001" placeholder="e.g. 10.4"></div>
+        <div class="field"><label><b>K<sub>D</sub><sup>C</sup></b> — C-terminal monomer (nM)</label>
+          <input id="kd_c" type="number" step="any" min="0.0001" placeholder="e.g. 14.4"></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Geometry</legend>
+      <div class="row">
+        <div class="field"><label><b>D<sub>mono</sub></b> — termini distance (Å)</label>
+          <input id="d_mono" type="number" step="any" placeholder="e.g. 93.7"></div>
+        <div class="field"><label><b>d<sub>epi</sub></b> — epitope distance (Å)</label>
+          <input id="d_epi" type="number" step="any" placeholder="e.g. 28.3">
+          <div class="hint">negative if epitopes clash</div></div>
+        <div class="field"><label><b>L<sub>link</sub></b> — linker contour length (Å)</label>
+          <input id="l_link" type="number" step="any" placeholder="e.g. 36.0"></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Interface</legend>
+      <div class="row">
+        <div class="field"><label><b>A<sub>N</sub></b> — N-terminal buried SASA (Å&sup2;)</label>
+          <input id="a_n" type="number" step="any" placeholder="e.g. 556.6"></div>
+        <div class="field"><label><b>A<sub>C</sub></b> — C-terminal buried SASA (Å&sup2;)</label>
+          <input id="a_c" type="number" step="any" placeholder="e.g. 527.1"></div>
+        <div class="field"><label><b>n<sub>t</sub><sup>N</sup></b> — N-terminal interface contacts</label>
+          <input id="nt_n" type="number" step="1" placeholder="e.g. 23"></div>
+        <div class="field"><label><b>n<sub>t</sub><sup>C</sup></b> — C-terminal interface contacts</label>
+          <input id="nt_c" type="number" step="1" placeholder="e.g. 19"></div>
+      </div>
+      <div class="adv">
+        <label><input type="checkbox" id="override"> Advanced — enter derived ratios manually
+          (R<sub>link</sub>, R<sub>area</sub>, R<sub>bond</sub>, S<sub>geometry</sub>)</label>
+      </div>
+      <div id="manual" style="display:none;margin-top:10px">
+        <div class="row">
+          <div class="field"><label>R<sub>link</sub></label><input id="r_link_m" type="number" step="any"></div>
+          <div class="field"><label>R<sub>area</sub></label><input id="r_area_m" type="number" step="any"></div>
+          <div class="field"><label>R<sub>bond</sub></label><input id="r_bond_m" type="number" step="any"></div>
+          <div class="field"><label>S<sub>geometry</sub></label><input id="s_geo_m" type="number" step="any"></div>
+        </div>
+      </div>
+    </fieldset>
+    <button class="primary" id="go">Predict avidity</button>
+    <button class="ghost" id="demo">Load example construct</button>
+    <span class="err" id="msg" style="margin-left:10px"></span>
+  </div>
+
+  <div class="col">
+    <h2>Prediction</h2>
+    <div class="result">
+      <div class="big" id="kd_out">—<small>&nbsp;nM</small></div>
+      <div style="margin:6px 0 14px" id="log_out"></div>
+      <div class="kv"><span class="k">Avidity gain vs weaker monomer</span><span id="gain">—</span></div>
+      <div class="kv"><span class="k">ln&nbsp;K<sub>D</sub><sup>bipara</sup> (model output)</span><span id="ln_out">—</span></div>
+      <div class="kv"><span class="k">Model</span><span>GradientBoostingRegressor &middot; 54 trees (early-stopped of 150)</span></div>
+    </div>
+
+    <h2 style="margin-top:26px">Derived features (computed)</h2>
+    <table>
+      <tr><th>Feature</th><th>Value</th><th>Definition</th></tr>
+      <tr><td>ln&nbsp;K<sub>D</sub><sup>N</sup>, ln&nbsp;K<sub>D</sub><sup>C</sup></td><td id="v_lnkds">—</td><td>natural log of monomer K<sub>D</sub></td></tr>
+      <tr><td>R<sub>link</sub></td><td id="v_rlink">—</td><td>L<sub>link</sub> / D<sub>mono</sub></td></tr>
+      <tr><td>R<sub>area</sub></td><td id="v_rarea">—</td><td>A<sub>N</sub> / A<sub>C</sub></td></tr>
+      <tr><td>R<sub>bond</sub></td><td id="v_rbond">—</td><td>n<sub>t</sub><sup>C</sup> / n<sub>t</sub><sup>N</sup></td></tr>
+      <tr><td>S<sub>geometry</sub></td><td id="v_sgeo">—</td><td>&Sigma; (1&minus;min(|R&minus;1|, c<sub>i</sub>)), c = 1 / 0.5 / 0.5</td></tr>
+    </table>
+    <div class="hint" style="margin-top:8px">
+      Reference: this construct family was trained on 102 constructs; the test split
+      participated in model selection (discovery selection). Treat predictions as
+      guidance, not blind generalisation.
+    </div>
+  </div>
+</div>
+
+<footer class="wrap">
+  ABLE v2.0 — model and code: <a href="https://github.com/Jinhua9/ABLE-nanobody">github.com/Jinhua9/ABLE-nanobody</a>.
+  Inference runs fully client-side via ONNX Runtime Web. For exact reproduction of the
+  published metrics see the <code>reproduce/</code> folder of the repository.
+</footer>
+</div>
+
+<script>
+const IDS = ['kd_n','kd_c','d_mono','d_epi','l_link','a_n','a_c','nt_n','nt_c'];
+let session = null;
+
+async function loadModel(){
+  if (session) return session;
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+  const buf = await (await fetch('able_model.onnx')).arrayBuffer();
+  session = await ort.InferenceSession.create(buf);
+  return session;
+}
+
+function Sgeo(rl, ra, rb){
+  return (1 - Math.min(Math.abs(rl - 1), 1))
+       + (1 - Math.min(Math.abs(ra - 1), 0.5))
+       + (1 - Math.min(Math.abs(rb - 1), 0.5));
+}
+
+function buildFeatures(){
+  const g = id => document.getElementById(id).value;
+  const num = (id, name) => {
+    const v = parseFloat(g(id));
+    if (!isFinite(v)) throw 'Please fill in "' + name + '".';
+    return v;
+  };
+  const kdN = num('kd_n','KD_N'), kdC = num('kd_c','KD_C');
+  if (kdN <= 0 || kdC <= 0) throw 'KD values must be positive.';
+  const D  = num('d_mono','D_mono'), depi = num('d_epi','d_epi'),
+        L  = num('l_link','L_link'), AN = num('a_n','A_N'),
+        AC = num('a_c','A_C'),      ntN = num('nt_n','nt_N'),
+        ntC = num('nt_c','nt_C');
+  let Rlink, Rarea, Rbond, Sg;
+  if (document.getElementById('override').checked){
+    Rlink = num('r_link_m','R_link'); Rarea = num('r_area_m','R_area');
+    Rbond = num('r_bond_m','R_bond'); Sg    = num('s_geo_m','S_geometry');
+  } else {
+    if (D <= 0 || AC <= 0 || ntN <= 0) throw 'D_mono, A_C and nt_N must be positive.';
+    Rlink = L / D; Rarea = AN / AC; Rbond = ntC / ntN; Sg = Sgeo(Rlink, Rarea, Rbond);
+  }
+  const feats = [Math.log(kdN), Math.log(kdC), D, depi, L, Rlink, Rarea, Rbond, AN, AC, ntN, ntC, Sg];
+  return {feats, kdN, kdC, Rlink, Rarea, Rbond, Sg};
+}
+
+function fmtKD(nm){
+  if (nm >= 1000) return (nm/1000).toFixed(2) + ' µM';
+  if (nm < 1)    return (nm*1000).toFixed(1) + ' pM';
+  return nm.toFixed(2) + ' nM';
+}
+
+async function predict(){
+  const msg = document.getElementById('msg');
+  msg.textContent = ''; msg.className = 'err';
+  try{
+    const f = buildFeatures();
+    document.getElementById('v_lnkds').textContent = Math.log(f.kdN).toFixed(3) + ', ' + Math.log(f.kdC).toFixed(3);
+    if (!document.getElementById('override').checked){
+      document.getElementById('v_rlink').textContent = f.Rlink.toFixed(3);
+      document.getElementById('v_rarea').textContent = f.Rarea.toFixed(3);
+      document.getElementById('v_rbond').textContent = f.Rbond.toFixed(3);
+      document.getElementById('v_sgeo').textContent  = f.Sg.toFixed(3);
+    }
+    const s = await loadModel();
+    const x = new ort.Tensor('float32', Float32Array.from(f.feats), [1, 13]);
+    const out = await s.run({X: x});
+    const lnKD = out[s.outputNames[0]].data[0];
+    const kd = Math.exp(lnKD);
+    document.getElementById('kd_out').innerHTML = fmtKD(kd) + '<small>&nbsp;K<sub>D</sub><sup>bipara</sup></small>';
+    document.getElementById('ln_out').textContent = lnKD.toFixed(4);
+    document.getElementById('log_out').innerHTML =
+      'Predicted apparent K<sub>D</sub> of the biparatopic construct';
+    const weaker = Math.max(f.kdN, f.kdC);
+    const gain = weaker / kd;
+    document.getElementById('gain').textContent = gain.toFixed(1) + '-fold' + (gain > 1 ? ' (avidity enhanced)' : ' (no gain)');
+    document.getElementById('gain').className = gain > 1 ? 'ok' : 'warn';
+  }catch(e){
+    msg.textContent = (typeof e === 'string') ? e : ('Error: ' + e.message);
+    document.getElementById('kd_out').textContent = '—';
+  }
+}
+
+document.getElementById('go').addEventListener('click', predict);
+document.getElementById('override').addEventListener('change', e => {
+  document.getElementById('manual').style.display = e.target.checked ? 'block' : 'none';
+});
+document.getElementById('demo').addEventListener('click', () => {
+  const demo = {kd_n:2.6, kd_c:3.31, d_mono:56.98, d_epi:14.116, l_link:54.0,
+                a_n:527.29, a_c:498.57, nt_n:20, nt_c:18};
+  for (const k of IDS) document.getElementById(k).value = demo[k];
+  predict();
+});
+</script>
+</body>
+</html>
