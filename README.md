@@ -7,13 +7,12 @@ This repository contains the implementation of the ABLE model, a gradient boosti
 
 ABLE enables rational design of high-avidity biparatopic nanobodies by predicting apparent dissociation constants (KD) based on 13 structural features derived from AlphaFold-predicted complexes.
 
-**v2.0 (2026):** the repository now ships the **final published model** — the seed-2/rank-1 configuration of the 200,000-combination × 7-seed hyperparameter search (train R² = 0.95, test R² = 0.87) — together with a browser-based prediction web app and an exact-reproduction package. The buggy v1 model and its training dataset have been removed (see *History* below).
+**v2.0 (2026):** the repository now ships the **final published model** — the seed-2/rank-1 configuration of the 200,000-combination × 7-seed hyperparameter search (train R² = 0.95, test R² = 0.87) — together with a browser-based prediction web app and an exact-reproduction package.
 
 ### What's new in v2.0
 - **Updated model** (`models/ABLE_model.pkl`): final published gradient boosting configuration (see `reproduce/` for the full protocol).
 - **Zero-install web predictor** (`docs/`, served via GitHub Pages): enter the 9 raw measurements in a browser, get the predicted KD instantly — no Python needed.
 - **Exact reproduction package** (`reproduce/`): frozen environment + self-checking script that rebuilds the published model bit-for-bit from the curated parameter table.
-- **Fixed prediction utilities**: the original utilities contained a target-leakage bug (`INPUT_FEATURES` included the target column and dropped `S_geometry`) and an integer-threshold geometry score that did not match the training data; both are corrected in the current `src/`, and the affected v1 artifacts were removed from the repository.
 
 ---
 
@@ -119,8 +118,6 @@ OK REPRODUCED exactly (tol 1e-06)
 
 `examples/01_train_model.py` is a lighter demonstration that trains on `reproduce/data/Parameters_3200s.xlsx` with a demonstration split (seed 456); with 21 test samples, single-split test R² varies strongly across seeds, so use `reproduce/` for the published numbers.
 
-### History
-The original v1 release of this repository contained a buggy model artifact: its `INPUT_FEATURES` accidentally included the target column `KD_bipara` (target leakage) and dropped `S_geometry`, and its `calculate_geometry_score` used an integer threshold rule that did not match the training data. The v1 model (`ABLE_model_v1_legacy.pkl`) and the accompanying old dataset file were therefore **removed** in v2.0. The current `src/` is a corrected rewrite (the 13 input features are listed explicitly, the geometry score matches the training table exactly, 102/102 rows), and the published model is rebuilt bit-for-bit by `reproduce/`.
 
 ---
 
