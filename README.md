@@ -11,7 +11,7 @@ ABLE enables rational design of high-avidity biparatopic nanobodies by predictin
 
 ### What's new in v2.0
 - **Updated model** (`models/ABLE_model.pkl`): final published gradient boosting configuration (see `reproduce/` for the full protocol).
-- **Zero-install web predictor** (`webapp/`, served via GitHub Pages): enter the 9 raw measurements in a browser, get the predicted KD instantly — no Python needed.
+- **Zero-install web predictor** (`docs/`, served via GitHub Pages): enter the 9 raw measurements in a browser, get the predicted KD instantly — no Python needed.
 - **Exact reproduction package** (`reproduce/`): frozen environment + self-checking script that rebuilds the published model bit-for-bit from the curated parameter table.
 - **Bug fixes in the prediction utilities** (see *v1 → v2 fixes* below): v1's `INPUT_FEATURES` accidentally included the target column and dropped `S_geometry`, and the legacy `calculate_geometry_score` used an integer threshold version that did not match the training data.
 
@@ -139,7 +139,7 @@ ABLE-nanobody/
 ├── examples/
 │   ├── 01_train_model.py         # train a fresh model on the 102-construct dataset
 │   └── 02_predict_avidity.py     # predict avidity for new constructs
-├── webapp/                       # browser predictor (GitHub Pages)
+├── docs/                        # browser predictor (GitHub Pages)
 │   ├── index.html
 │   └── able_model.onnx           # ONNX export, numerically identical to the pkl
 ├── reproduce/                    # exact reproduction of the published model
