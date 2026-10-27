@@ -177,8 +177,17 @@ class ABLEModel:
         df['KD_N'] = to_log(df['KD_N'])
         df['KD_C'] = to_log(df['KD_C'])
 
-        X = df[self.feature_names].values.astype(float)
-        y = pd.to_numeric(df[target_col], errors='coerce').values.astype(float)
+        X = df[self.feature_names].apply(pd.to_numeric, errors='coerce')
+        y = pd.to_numeric(df[target_col], errors='coerce')
+
+        # Drop rows with missing values in any feature or the target
+        # (the curated parameter table contains unmeasured constructs)
+        valid = X.notna().all(axis=1) & y.notna()
+        n_dropped = int((~valid).sum())
+        if n_dropped:
+            print(f"⚠ Dropped {n_dropped} row(s) with missing values (unmeasured constructs)")
+        X = X[valid].values.astype(float)
+        y = y[valid].values.astype(float)
         if (y > 20).any():
             y = np.log(y)
 
@@ -202,7 +211,8 @@ class ABLEModel:
         self.actual_trees_trained = self.model.n_estimators_
         print(f"✓ Model trained with {self.actual_trees_trained} trees")
 
-    def train_from_excel(self, excel_path, test_size=0.2, random_state=456):
+    def train_from_excel(self, excel_path, test_size=0.2, random_state=456,
+                         column_map=None):
         """
         Train model directly from Excel file.
 
@@ -210,11 +220,16 @@ class ABLEModel:
             excel_path (str): Path to Excel file
             test_size (float): Proportion for test set
             random_state (int): Random seed for the split
+            column_map (dict, optional): Mapping from the file's column
+                names to the 13 feature names + 'KD_bipara' expected by
+                prepare_data (see examples/01_train_model.py)
 
         Returns:
             tuple: (X_test, y_test, y_pred) for evaluation
         """
         df = self.load_excel_data(excel_path)
+        if column_map is not None:
+            df = df.rename(columns=column_map)
         X, y = self.prepare_data(df)
 
         discretizer = KBinsDiscretizer(

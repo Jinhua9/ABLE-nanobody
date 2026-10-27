@@ -7,13 +7,13 @@ This repository contains the implementation of the ABLE model, a gradient boosti
 
 ABLE enables rational design of high-avidity biparatopic nanobodies by predicting apparent dissociation constants (KD) based on 13 structural features derived from AlphaFold-predicted complexes.
 
-**v2.0 (2026):** the repository now ships the **final published model** — the seed-2/rank-1 configuration of the 200,000-combination × 7-seed hyperparameter search (train R² = 0.95, test R² = 0.87) — together with a browser-based prediction web app and an exact-reproduction package. The original v1 model is preserved as `models/ABLE_model_v1_legacy.pkl`.
+**v2.0 (2026):** the repository now ships the **final published model** — the seed-2/rank-1 configuration of the 200,000-combination × 7-seed hyperparameter search (train R² = 0.95, test R² = 0.87) — together with a browser-based prediction web app and an exact-reproduction package. The buggy v1 model and its training dataset have been removed (see *History* below).
 
 ### What's new in v2.0
 - **Updated model** (`models/ABLE_model.pkl`): final published gradient boosting configuration (see `reproduce/` for the full protocol).
 - **Zero-install web predictor** (`docs/`, served via GitHub Pages): enter the 9 raw measurements in a browser, get the predicted KD instantly — no Python needed.
 - **Exact reproduction package** (`reproduce/`): frozen environment + self-checking script that rebuilds the published model bit-for-bit from the curated parameter table.
-- **Bug fixes in the prediction utilities** (see *v1 → v2 fixes* below): v1's `INPUT_FEATURES` accidentally included the target column and dropped `S_geometry`, and the legacy `calculate_geometry_score` used an integer threshold version that did not match the training data.
+- **Fixed prediction utilities**: the original utilities contained a target-leakage bug (`INPUT_FEATURES` included the target column and dropped `S_geometry`) and an integer-threshold geometry score that did not match the training data; both are corrected in the current `src/`, and the affected v1 artifacts were removed from the repository.
 
 ---
 
@@ -117,12 +117,10 @@ Early-stopped trees: 54/150
 OK REPRODUCED exactly (tol 1e-06)
 ```
 
-`examples/01_train_model.py` is a lighter demonstration that trains on `data/ABLE Dataset.xlsx` with a demonstration split (seed 456); with 21 test samples, single-split test R² varies strongly across seeds, so use `reproduce/` for the published numbers.
+`examples/01_train_model.py` is a lighter demonstration that trains on `reproduce/data/Parameters_3200s.xlsx` with a demonstration split (seed 456); with 21 test samples, single-split test R² varies strongly across seeds, so use `reproduce/` for the published numbers.
 
-### v1 → v2 fixes (for transparency)
-- `INPUT_FEATURES` in v1 was defined as `FEATURE_NAMES[:-1]`, which was intended to exclude the target `KD_bipara` but actually kept `KD_bipara` (position 3) and dropped `S_geometry` (last). v2 lists the 13 input features explicitly.
-- v1's `calculate_geometry_score` used an integer 0–3 threshold rule that does not match the `S_geometry` column of the training data; v2 implements the continuous capped-penalty formula above (verified to match the training table exactly, 102/102 rows).
-- v1 examples passed raw nM KDs and a misordered feature matrix to `predict()`; v2's `prepare_model_input` fixes both.
+### History
+The original v1 release of this repository contained a buggy model artifact: its `INPUT_FEATURES` accidentally included the target column `KD_bipara` (target leakage) and dropped `S_geometry`, and its `calculate_geometry_score` used an integer threshold rule that did not match the training data. The v1 model (`ABLE_model_v1_legacy.pkl`) and the accompanying old dataset file were therefore **removed** in v2.0. The current `src/` is a corrected rewrite (the 13 input features are listed explicitly, the geometry score matches the training table exactly, 102/102 rows), and the published model is rebuilt bit-for-bit by `reproduce/`.
 
 ---
 
@@ -131,8 +129,7 @@ OK REPRODUCED exactly (tol 1e-06)
 ```
 ABLE-nanobody/
 ├── models/
-│   ├── ABLE_model.pkl            # v2 published model (13 ln-scale features)
-│   └── ABLE_model_v1_legacy.pkl  # original v1 model (kept for reference)
+│   └── ABLE_model.pkl            # published model (13 ln-scale features)
 ├── src/
 │   ├── able_model.py             # ABLEModel class + geometry score
 │   └── utils.py                  # prepare_model_input, validation, reports
@@ -146,8 +143,6 @@ ABLE-nanobody/
 │   ├── reproduce_able_gb.py      # self-checking script
 │   ├── requirements.txt          # frozen versions
 │   └── data/Parameters_3200s.xlsx
-├── data/
-│   └── ABLE Dataset.xlsx         # 102-construct dataset (raw measurements)
 └── requirements.txt
 ```
 

@@ -12,6 +12,16 @@ import numpy as np
 from src.able_model import ABLEModel
 from src.utils import print_model_summary, create_prediction_report
 
+# Column names in the curated parameter table (reproduce/data/Parameters_3200s.xlsx)
+# mapped to the names expected by ABLEModel.prepare_data
+COLUMN_MAP = {
+    'KD,N (nM)': 'KD_N', 'KD,C (nM)': 'KD_C', 'KD,Bipara (nM)': 'KD_bipara',
+    'depi (Å)': 'd_epi', 'Llink (Å）': 'L_link', 'Dmono (Å）': 'D_mono',
+    'Rlink': 'R_link', 'Rarea': 'R_area', 'Aarea,N': 'AN', 'Aarea,C': 'AC',
+    'nt,N': 'n_bonds_N', 'nt,C': 'n_bonds_C', 'Rbond': 'R_bond',
+    'Sgeometry': 'S_geometry',
+}
+
 def main():
     print("=" * 70)
     print("ABLE MODEL TRAINING EXAMPLE")
@@ -21,7 +31,7 @@ def main():
     try:
         # Load dataset
         print("\n1. Loading dataset...")
-        data_path = os.path.join('..', 'data', 'ABLE Dataset.xlsx')
+        data_path = os.path.join('..', 'reproduce', 'data', 'Parameters_3200s.xlsx')
         df = pd.read_excel(data_path)
         print(f"   ✓ Dataset loaded: {df.shape[0]} samples, {df.shape[1]} features")
         
@@ -35,7 +45,8 @@ def main():
         X_test, y_test, y_pred = model.train_from_excel(
             data_path,
             test_size=0.2,
-            random_state=456
+            random_state=456,
+            column_map=COLUMN_MAP
         )
         
         # Evaluate model
@@ -79,7 +90,7 @@ def main():
         
     except FileNotFoundError as e:
         print(f"\n✗ Error: File not found - {e}")
-        print("Please ensure the data file exists at: data/ABLE Dataset.xlsx")
+        print("Please ensure the data file exists at: reproduce/data/Parameters_3200s.xlsx")
     except Exception as e:
         print(f"\n✗ Error during training: {e}")
         import traceback
